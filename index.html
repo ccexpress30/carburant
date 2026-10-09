@@ -72,6 +72,15 @@
 <style>
   .row>div{min-width:0}
   .row input,.row select{min-width:0}
+  .steps{font-size:14px;color:var(--mute);margin:-6px 0 12px}
+  .steps b{color:var(--brand)}
+  .idcard{padding:12px 16px}
+  .idrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;font-weight:700;font-size:17px}
+  .idrow+.idrow{border-top:1px solid var(--line)}
+  .idlbl{font-size:13px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.03em;flex:none}
+  .idrow .link{padding:0;font-size:15px}
+  .secttl{font-size:13px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.03em;margin:4px 2px 8px}
+  .big-cam{gap:6px!important}
   .list li.tap{cursor:pointer}
   .list li.tap:active{background:var(--bg)}
   .retake{font-size:13px;font-weight:700;color:var(--brand)}
@@ -107,12 +116,13 @@
   <!-- ACCUEIL -->
   <section id="vHome" class="hidden">
     <header>
-      <div><h1 id="hNom"></h1><div class="sub" id="hVeh"></div></div>
+      <div><h1 id="hNom"></h1></div>
       <span id="hPending" class="pending hidden"></span>
     </header>
     <button class="big-cam" id="bCam">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.8"/></svg>
-      Photographier un ticket
+      Nouveau ticket
+      <span style="font-size:15px;font-weight:500;opacity:.85">Véhicule → photo → compléter</span>
     </button>
     <input id="fPhoto" type="file" accept="image/*" capture="environment" class="hidden">
     <div id="hNet"></div>
@@ -121,14 +131,39 @@
       <div class="hint" style="margin:0 0 8px">Ticket mal photographié ? Touchez-le pour reprendre la photo.</div>
       <ul class="list" id="hList"><li class="sub">—</li></ul>
     </div>
-    <button class="link" id="bChangeVeh">Changer de véhicule</button> ·
     <button class="link" id="bLogout">Se déconnecter</button>
   </section>
 
-  <!-- SAISIE -->
+  <!-- ÉTAPE 1 : VÉHICULE -->
+  <section id="vVeh" class="hidden">
+    <header><h1>Nouveau ticket</h1><button class="link" id="bVehCancel">Annuler</button></header>
+    <div class="steps"><b>Véhicule</b> › Photo › Compléter</div>
+    <div class="card">
+      <div id="gVeh">
+        <label for="fVeh">Véhicule utilisé *</label>
+        <select id="fVeh"></select>
+        <div id="gVehAutre" class="hidden">
+          <label for="fVehAutre">Immatriculation du véhicule (location, prêt…) *</label>
+          <input id="fVehAutre" autocapitalize="characters" autocomplete="off" placeholder="ex. AB-123-CD">
+          <label for="fVehType">Type</label>
+          <select id="fVehType"><option>Location</option><option>Prêt</option><option>Autre</option></select>
+        </div>
+      </div>
+      <div id="vMsg"></div>
+      <button class="btn" id="bNext">Suivant : photographier le ticket</button>
+    </div>
+  </section>
+
+  <!-- ÉTAPE 3 : SAISIE -->
   <section id="vForm" class="hidden">
     <header><h1 id="fTitle">Vérifier le ticket</h1><button class="link" id="bCancel">Annuler</button></header>
+    <div class="steps" id="fSteps">Véhicule › Photo › <b>Compléter</b></div>
     <div id="fBanner"></div>
+    <div class="card idcard">
+      <div class="idrow"><span class="idlbl">1 · Chauffeur</span><span id="fChauf"></span></div>
+      <div class="idrow" id="fVehSum"></div>
+    </div>
+    <div class="secttl">3 · Photo du ticket</div>
     <div class="card" id="fPrevCard">
       <div class="preview">
         <img id="fImg" alt="">
@@ -136,6 +171,7 @@
       </div>
     </div>
     <div class="card">
+      <div class="secttl" style="margin-top:0">4 · Compléments</div>
       <div id="gTicket">
         <label for="fKm">Kilométrage du compteur *</label>
         <input id="fKm" inputmode="numeric" placeholder="ex. 124530">
@@ -152,10 +188,6 @@
         </div>
         <label for="fCarb">Carburant</label>
         <select id="fCarb"><option>Gazole</option><option>SP95-E10</option><option>SP95</option><option>SP98</option><option>E85</option><option>GPL</option><option>AdBlue</option><option>Autre</option></select>
-      </div>
-      <div id="gVeh">
-        <label for="fVeh">Véhicule</label>
-        <select id="fVeh"></select>
       </div>
       <div id="fMsg"></div>
       <button class="btn" id="bSend">Envoyer</button>
@@ -180,8 +212,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxqWUts0qVkD6WqO77r4EwK
 /* ======================================================================= */
 
 const $ = id => document.getElementById(id);
-// mode : 'new' (nouveau ticket) · 'retake' (reprise de photo d'un ticket existant) · 'veh' (changer de véhicule)
-const S = { session: null, photo: null, ocr: null, ocrCtl: null, kmConfirmed: false, mode: 'new', edit: null, pendingEdit: null, tickets: [] };
+// mode : 'new' (nouveau ticket) · 'retake' (reprise de photo d'un ticket existant)
+const S = { veh: null, session: null, photo: null, ocr: null, ocrCtl: null, kmConfirmed: false, mode: 'new', edit: null, pendingEdit: null, tickets: [] };
 
 /* ---------- stockage local ---------- */
 const LS = {
@@ -237,7 +269,7 @@ const uid = () => Date.now().toString(36) + '-' + Math.random().toString(36).sli
 const cb4 = x => { const m = String(x || '').replace(/\D/g, '').slice(-4); return m.length === 4 ? m : ''; };
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const note = (el, type, html) => { $(el).innerHTML = html ? `<div class="note ${type}">${html}</div>` : ''; };
-function show(v){ ['vLogin','vHome','vForm','vDone'].forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0,0); }
+function show(v){ ['vLogin','vHome','vVeh','vForm','vDone'].forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0,0); }
 const vehOf = code => (S.session.vehicules || []).find(v => v.code === code) || {};
 
 // Réduit la photo (≈ 200–400 Ko) : envoi rapide même en 3G
@@ -256,7 +288,6 @@ async function compress(file, max = 1600, q = 0.75) {
 /* ---------- connexion ---------- */
 function applyLogin(r) {
   Object.assign(S.session, { id: S.session.id === 'INVITE' ? 'INVITE' : r.id, nom: r.nom, admin: !!r.admin, guest: !!r.guest, vehicules: r.vehicules, cartes: r.cartes || [], tauxTVA: r.tauxTVA || 0.2 });
-  if (!S.session.vehicule || !vehOf(S.session.vehicule).code) S.session.vehicule = r.defaut || (r.vehicules[0] || {}).code;
   LS.set('session', S.session);
 }
 let guestMode = false;
@@ -289,9 +320,7 @@ $('bLogout').onclick = () => { LS.del('session'); S.session = null; $('lPin').va
 /* ---------- accueil ---------- */
 function home() {
   show('vHome');
-  const v = vehOf(S.session.vehicule);
   $('hNom').textContent = 'Bonjour ' + S.session.nom;
-  $('hVeh').textContent = v.code ? `Véhicule ${v.code}${v.immat ? ' · ' + v.immat : ''}` : 'Aucun véhicule';
   $('hListTitle').textContent = S.session.admin ? 'Tous les tickets (à compléter en premier)' : 'Mes derniers tickets';
   refreshPending();
   note('hNet', navigator.onLine ? '' : 'warn', navigator.onLine ? '' : 'Hors connexion : vos tickets seront envoyés automatiquement au retour du réseau.');
@@ -320,15 +349,52 @@ function renderList() {
     S.pendingEdit = T[+li.dataset.i]; $('fPhoto').click();
   });
 }
-$('bChangeVeh').onclick = () => openForm(null, 'veh');
 
 /* ---------- photo → saisie ---------- */
-$('bCam').onclick = () => { S.pendingEdit = null; $('fPhoto').click(); };
+$('bCam').onclick = () => { S.pendingEdit = null; S.photo = null; openVeh(); };
+
+/* ---------- étape 1 : véhicule ---------- */
+function openVeh() {
+  const parc = S.session.vehicules || [];
+  const cur = S.veh;
+  $('fVeh').innerHTML = '<option value="">— Choisir le véhicule —</option>' +
+    parc.map(v => `<option value="${esc(v.code)}">${esc(v.code)}${v.immat ? ' · ' + esc(v.immat) : ''}</option>`).join('') +
+    '<option value="__AUTRE__">Autre véhicule (location, prêt…)</option>';
+  // Nouveau ticket : rien de présélectionné. Retour depuis l'étape 3 ("Modifier") : on garde le choix en cours.
+  if (S.photo && cur) {
+    const inParc = parc.some(v => v.code === cur.vehicule);
+    $('fVeh').value = inParc ? cur.vehicule : '__AUTRE__';
+    $('fVehAutre').value = inParc ? '' : cur.vehicule; $('fVehType').value = cur.horsParc || 'Location';
+  } else {
+    S.veh = null; $('fVeh').value = ''; $('fVehAutre').value = ''; $('fVehType').value = 'Location';
+  }
+  $('bNext').textContent = S.photo ? 'Valider le véhicule' : 'Suivant : photographier le ticket';
+  note('vMsg'); vehUi(); show('vVeh');
+}
+$('bNext').onclick = () => {
+  const autre = $('fVeh').value === '__AUTRE__';
+  const vehicule = autre ? immat($('fVehAutre').value) : $('fVeh').value;
+  if (!$('fVeh').value) return note('vMsg', 'err', 'Choisissez le véhicule utilisé.');
+  if (autre && vehicule.length < 5) { note('vMsg', 'err', 'Saisissez l\'immatriculation du véhicule de location / prêt.'); return $('fVehAutre').focus(); }
+  S.veh = { vehicule, horsParc: autre ? $('fVehType').value : '' };
+  if (S.photo) { show('vForm'); vehSum(); kmHint(); S.kmConfirmed = false; return; }
+  $('fPhoto').click();   // étape 2 : l'appareil photo s'ouvre
+};
+$('bVehCancel').onclick = () => { if (S.photo && S.veh) show('vForm'); else { S.photo = null; home(); } };
+function vehSum() {
+  const v = S.veh || {}, p = vehOf(v.vehicule);
+  $('fChauf').textContent = (S.mode === 'retake' && S.edit && S.edit.nom) ? S.edit.nom : S.session.nom;
+  $('fVehSum').innerHTML = `<span class="idlbl">2 · Véhicule</span><span style="flex:1;text-align:right">${esc(v.vehicule || '?')}${p.immat ? ' · ' + esc(p.immat) : ''}${v.horsParc ? ' <span class="sub">(' + esc(v.horsParc) + ')</span>' : ''}</span>` +
+    (S.mode === 'new' ? '<button class="link" id="bVehEdit">Modifier</button>' : '');
+  const b = $('bVehEdit'); if (b) b.onclick = openVeh;
+}
 $('fPhoto').onchange = async e => {
   const f = e.target.files[0]; e.target.value = '';
   if (!f) { S.pendingEdit = null; return; }
   const data = await compress(f);
   const edit = S.pendingEdit; S.pendingEdit = null;
+  if (edit) S.veh = { vehicule: edit.vehicule, horsParc: '' };
+  if (!S.veh) return home();
   openForm(data, edit ? 'retake' : 'new', edit);
 };
 
@@ -343,17 +409,14 @@ function fillCb(selected) {
 function openForm(photo, mode, edit) {
   S.photo = photo; S.ocr = null; S.kmConfirmed = false; S.mode = mode; S.edit = edit || null;
   show('vForm');
-  const isVeh = mode === 'veh', isRetake = mode === 'retake';
-  $('fTitle').textContent = isVeh ? 'Mon véhicule' : isRetake ? 'Reprise du ticket' : 'Vérifier le ticket';
+  const isRetake = mode === 'retake';
+  $('fTitle').textContent = isRetake ? 'Reprise du ticket' : 'Compléter le ticket';
+  $('fSteps').classList.toggle('hidden', isRetake);
+  vehSum();
   $('fPrevCard').classList.toggle('hidden', !photo);
-  $('gTicket').classList.toggle('hidden', isVeh);
   $('fImg').src = photo || '';
   $('fBanner').innerHTML = isRetake
     ? `<div class="banner">Nouvelle photo pour le ticket du <b>${esc(edit.date)}</b> (${esc(edit.vehicule)}${edit.nom ? ' · ' + esc(edit.nom) : ''}). Il sera mis à jour, pas dupliqué.</div>` : '';
-
-  $('fVeh').innerHTML = S.session.vehicules.map(v => `<option value="${esc(v.code)}">${esc(v.code)}${v.immat ? ' · ' + esc(v.immat) : ''}</option>`).join('');
-  $('fVeh').value = isRetake ? edit.vehicule : S.session.vehicule;
-  $('fVeh').disabled = isRetake;
 
   // Valeurs de départ : celles du ticket existant (reprise) ou vides (nouveau)
   $('fKm').value = isRetake && edit.km ? edit.km : '';
@@ -361,10 +424,10 @@ function openForm(photo, mode, edit) {
   $('fLitres').value = isRetake && edit.litres ? fr(edit.litres) : '';
   $('fTtc').value = isRetake && edit.ttc ? fr(edit.ttc) : '';
   $('fDate').value = isRetake && edit.dateIso ? edit.dateIso : today();
-  $('fCarb').value = (isRetake && edit.carburant) || vehOf($('fVeh').value).carburant || 'Gazole';
+  $('fCarb').value = (isRetake && edit.carburant) || vehOf(S.veh.vehicule).carburant || 'Gazole';
   fillCb(isRetake ? cb4(edit.cb) : (LS.get('lastCb') || ''));
   kmUi(); kmHint(); htCalc(); note('fMsg');
-  $('bSend').textContent = isVeh ? 'Enregistrer' : isRetake ? 'Mettre à jour le ticket' : 'Envoyer';
+  $('bSend').textContent = isRetake ? 'Mettre à jour le ticket' : 'Envoyer';
   if (photo) runOcr(photo);
 }
 
@@ -409,7 +472,7 @@ function kmUi() {
   $('fKmHint').classList.toggle('hidden', no);
 }
 function kmHint() {
-  const v = vehOf($('fVeh').value);
+  const v = vehOf(S.veh && S.veh.vehicule);
   $('fKmHint').textContent = v.dernierKm ? `Dernier relevé connu : ${v.dernierKm.toLocaleString('fr-FR')} km` : '';
 }
 function htCalc() {
@@ -420,16 +483,30 @@ function htCalc() {
 }
 $('fTtc').oninput = htCalc; $('fLitres').oninput = htCalc;
 $('fKmNo').onchange = () => { kmUi(); note('fMsg'); };
-$('fVeh').onchange = () => { kmHint(); S.kmConfirmed = false; };
+function vehUi() {
+  const autre = $('fVeh').value === '__AUTRE__';
+  $('gVehAutre').classList.toggle('hidden', !autre);
+  $('fVeh').style.borderColor = $('fVeh').value ? '' : 'var(--warn)';
+}
+// Immatriculation saisie : majuscules, tirets (AB123CD → AB-123-CD)
+function immat(x) {
+  const s = String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const m = s.match(/^([A-Z]{2})(\d{3})([A-Z]{2})$/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : s;
+}
+$('fVeh').onchange = () => {
+  vehUi(); note('vMsg');
+  if ($('fVeh').value === '__AUTRE__') $('fVehAutre').focus();
+};
 $('fKm').oninput = () => { S.kmConfirmed = false; note('fMsg'); };
 $('bCancel').onclick = () => { if (S.ocrCtl) S.ocrCtl.abort(); S.photo = null; home(); };
 
 /* ---------- envoi ---------- */
 $('bSend').onclick = async () => {
-  if (S.mode === 'veh') { S.session.vehicule = $('fVeh').value; LS.set('session', S.session); return home(); }
-
   const km = num($('fKm').value), kmNo = $('fKmNo').checked;
-  const v = vehOf($('fVeh').value);
+  if (!S.veh || !S.veh.vehicule) return openVeh();
+  const vehicule = S.veh.vehicule;
+  const v = vehOf(vehicule);
   const cb = $('fCb').value;
   if (S.mode === 'new' && !km && !kmNo) { note('fMsg', 'err', 'Le kilométrage est obligatoire (ou cochez « Je ne connais pas le km »).'); return $('fKm').focus(); }
   if (!cb) { note('fMsg', 'err', 'Choisissez la CB utilisée.'); return $('fCb').focus(); }
@@ -442,7 +519,7 @@ $('bSend').onclick = async () => {
   if (S.ocr) lecture = (S.ocr.litres === litres && S.ocr.montant_ttc === ttc) ? 'IA' : 'IA corrigée';
 
   const payload = {
-    vehicule: $('fVeh').value, km: kmNo ? '' : km, kmInconnu: kmNo, litres, montant: ttc, date: $('fDate').value,
+    vehicule, horsParc: S.veh.horsParc || '', km: kmNo ? '' : km, kmInconnu: kmNo, litres, montant: ttc, date: $('fDate').value,
     cb, carburant: $('fCarb').value, station: S.ocr && S.ocr.station || '', lecture, image: S.photo
   };
   const item = { clientId: uid(), createdAt: Date.now(), action: S.mode === 'retake' ? 'retake' : 'submit', payload,
@@ -451,7 +528,6 @@ $('bSend').onclick = async () => {
 
   LS.set('lastCb', cb);
   if (item.action === 'submit') {
-    S.session.vehicule = payload.vehicule;
     if (km > (v.dernierKm || 0)) v.dernierKm = km;
     LS.set('session', S.session);
   }
