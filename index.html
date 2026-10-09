@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CC Carburant</title>
+<meta name="theme-color" content="#1f3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Carburant">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#f3f5f8; --card:#fff; --ink:#14202e; --mute:#5b6b7d; --line:#d9e0e8;
+    --brand:#1f3a5f; --brand-ink:#fff; --ok:#1e7a46; --ok-bg:#e3f4ea;
+    --warn:#8a5a00; --warn-bg:#fff4d6; --err:#a32020; --err-bg:#fde6e6;
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f151c; --card:#18212b; --ink:#e8eef5; --mute:#93a3b5; --line:#2a3644;
+      --brand:#4f86c6; --ok:#5fd18f; --ok-bg:#163324; --warn:#f2c14e; --warn-bg:#3a2f12;
+      --err:#ff8a8a; --err-bg:#3a1717; }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font:17px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  main{max-width:520px;margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 16px}
+  header h1{font-size:20px;margin:0}
+  .sub{color:var(--mute);font-size:15px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  label{display:block;font-size:14px;font-weight:600;color:var(--mute);margin:12px 0 6px}
+  input,select{width:100%;font:inherit;font-size:20px;padding:13px 14px;border:1.5px solid var(--line);
+    border-radius:12px;background:var(--card);color:var(--ink);appearance:none}
+  input:focus,select:focus{outline:none;border-color:var(--brand)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .row label{margin-top:12px}
+  button{font:inherit;border:0;border-radius:12px;cursor:pointer}
+  .btn{width:100%;padding:17px;font-size:19px;font-weight:700;background:var(--brand);color:var(--brand-ink);margin-top:16px}
+  .btn:disabled{opacity:.5}
+  .btn.ghost{background:transparent;color:var(--brand);border:1.5px solid var(--line);font-weight:600}
+  .link{background:none;color:var(--brand);font-weight:600;padding:8px 0;font-size:15px}
+  .big-cam{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    width:100%;min-height:210px;background:var(--brand);color:var(--brand-ink);border-radius:20px;font-size:22px;font-weight:700}
+  .big-cam svg{width:64px;height:64px}
+  .note{padding:12px 14px;border-radius:12px;font-size:15px;margin-top:12px}
+  .note.ok{background:var(--ok-bg);color:var(--ok)}
+  .note.warn{background:var(--warn-bg);color:var(--warn)}
+  .note.err{background:var(--err-bg);color:var(--err)}
+  .preview{display:flex;gap:14px;align-items:center}
+  .preview img{width:84px;height:112px;object-fit:cover;border-radius:10px;border:1px solid var(--line);flex:none}
+  .ht{font-size:15px;color:var(--mute);margin-top:6px}
+  .hint{font-size:14px;color:var(--mute);margin-top:6px}
+  .pending{display:inline-flex;align-items:center;gap:6px;background:var(--warn-bg);color:var(--warn);
+    padding:6px 10px;border-radius:99px;font-size:14px;font-weight:600}
+  .list{list-style:none;margin:0;padding:0}
+  .list li{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+  .list li:first-child{border-top:0}
+  .tag{font-size:12px;font-weight:700;color:var(--err)}
+  .spin{width:18px;height:18px;border:2.5px solid currentColor;border-right-color:transparent;border-radius:50%;
+    display:inline-block;vertical-align:-3px;animation:s .8s linear infinite;margin-right:8px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .hidden{display:none!important}
+  .done{text-align:center;padding:28px 16px}
+  .done svg{width:72px;height:72px}
+  h2{font-size:17px;margin:0 0 6px}
+</style>
+<style>
+  .row>div{min-width:0}
+  .row input,.row select{min-width:0}
+  .list li.tap{cursor:pointer}
+  .list li.tap:active{background:var(--bg)}
+  .retake{font-size:13px;font-weight:700;color:var(--brand)}
+  .check{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:15px;color:var(--mute)}
+  .check input{width:22px;height:22px;flex:none;padding:0;appearance:auto}
+  .banner{background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:10px 14px;font-size:15px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<main>
+
+  <!-- CONNEXION -->
+  <section id="vLogin" class="hidden">
+    <header><h1>Tickets carburant</h1></header>
+    <div class="card">
+      <div id="gStaff">
+        <label for="lId">Votre identifiant</label>
+        <input id="lId" inputmode="numeric" autocomplete="username" placeholder="ex. 2">
+      </div>
+      <div id="gGuest" class="hidden">
+        <div class="banner">Accès remplaçant : utilisez le code que vous a donné CC Express.</div>
+        <label for="lNom">Votre nom et prénom</label>
+        <input id="lNom" autocomplete="name" placeholder="ex. Durand Paul">
+      </div>
+      <label for="lPin" id="lPinLbl">Code PIN</label>
+      <input id="lPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="4 chiffres">
+      <button class="btn" id="bLogin">Se connecter</button>
+      <div id="lMsg"></div>
+      <button class="link" id="bGuest" style="margin-top:10px">Remplaçant ? Connexion invité</button>
+    </div>
+  </section>
+
+  <!-- ACCUEIL -->
+  <section id="vHome" class="hidden">
+    <header>
+      <div><h1 id="hNom"></h1><div class="sub" id="hVeh"></div></div>
+      <span id="hPending" class="pending hidden"></span>
+    </header>
+    <button class="big-cam" id="bCam">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.8"/></svg>
+      Photographier un ticket
+    </button>
+    <input id="fPhoto" type="file" accept="image/*" capture="environment" class="hidden">
+    <div id="hNet"></div>
+    <div class="card" style="margin-top:14px">
+      <h2 id="hListTitle">Mes derniers tickets</h2>
+      <div class="hint" style="margin:0 0 8px">Ticket mal photographié ? Touchez-le pour reprendre la photo.</div>
+      <ul class="list" id="hList"><li class="sub">—</li></ul>
+    </div>
+    <button class="link" id="bChangeVeh">Changer de véhicule</button> ·
+    <button class="link" id="bLogout">Se déconnecter</button>
+  </section>
+
+  <!-- SAISIE -->
+  <section id="vForm" class="hidden">
+    <header><h1 id="fTitle">Vérifier le ticket</h1><button class="link" id="bCancel">Annuler</button></header>
+    <div id="fBanner"></div>
+    <div class="card" id="fPrevCard">
+      <div class="preview">
+        <img id="fImg" alt="">
+        <div id="fOcr" class="sub"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div id="gTicket">
+        <label for="fKm">Kilométrage du compteur *</label>
+        <input id="fKm" inputmode="numeric" placeholder="ex. 124530">
+        <div class="hint" id="fKmHint"></div>
+        <label class="check"><input type="checkbox" id="fKmNo"> Je ne connais pas le km (ticket ancien)</label>
+        <div class="row">
+          <div><label for="fLitres">Litres</label><input id="fLitres" inputmode="decimal" placeholder="0,00"></div>
+          <div><label for="fTtc">Montant TTC €</label><input id="fTtc" inputmode="decimal" placeholder="0,00"></div>
+        </div>
+        <div class="ht" id="fHt"></div>
+        <div class="row">
+          <div><label for="fDate">Date du ticket</label><input id="fDate" type="date"></div>
+          <div><label for="fCb">CB utilisée *</label><select id="fCb"></select></div>
+        </div>
+        <label for="fCarb">Carburant</label>
+        <select id="fCarb"><option>Gazole</option><option>SP95-E10</option><option>SP95</option><option>SP98</option><option>E85</option><option>GPL</option><option>AdBlue</option><option>Autre</option></select>
+      </div>
+      <div id="gVeh">
+        <label for="fVeh">Véhicule</label>
+        <select id="fVeh"></select>
+      </div>
+      <div id="fMsg"></div>
+      <button class="btn" id="bSend">Envoyer</button>
+    </div>
+  </section>
+
+  <!-- CONFIRMATION -->
+  <section id="vDone" class="hidden">
+    <div class="card done">
+      <div id="dIcon"></div>
+      <h1 id="dTitle" style="font-size:22px;margin:10px 0 6px"></h1>
+      <div class="sub" id="dText"></div>
+      <button class="btn" id="bAgain">Terminé</button>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ===== Configuration : collez ici l'URL du déploiement Apps Script ===== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbxqWUts0qVkD6WqO77r4EwKw9qGnQD1fF31CPFiQCnqap2q8GfYBTt8MeSpMejsaUE9/exec';
+/* ======================================================================= */
+
+const $ = id => document.getElementById(id);
+// mode : 'new' (nouveau ticket) · 'retake' (reprise de photo d'un ticket existant) · 'veh' (changer de véhicule)
+const S = { session: null, photo: null, ocr: null, ocrCtl: null, kmConfirmed: false, mode: 'new', edit: null, pendingEdit: null, tickets: [] };
+
+/* ---------- stockage local ---------- */
+const LS = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+
+// File d'attente hors ligne (IndexedDB : supporte les photos)
+const Q = (() => {
+  let dbp;
+  const db = () => dbp || (dbp = new Promise((ok, ko) => {
+    const r = indexedDB.open('cc-carburant', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'clientId' });
+    r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
+  }));
+  const tx = async (mode, fn) => {
+    const d = await db();
+    return new Promise((ok, ko) => {
+      const t = d.transaction('q', mode), st = t.objectStore('q'), r = fn(st);
+      t.oncomplete = () => ok(r && r.result); t.onerror = () => ko(t.error);
+    });
+  };
+  return {
+    add: it => tx('readwrite', s => s.put(it)),
+    del: id => tx('readwrite', s => s.delete(id)),
+    all: () => tx('readonly', s => s.getAll()),
+  };
+})();
+
+/* ---------- API ---------- */
+async function api(action, body = {}, timeoutMs = 45000) {
+  const ctl = new AbortController();
+  const tm = setTimeout(() => ctl.abort(), timeoutMs);
+  const { signal, auth, ...rest } = body;
+  if (signal) signal.addEventListener('abort', () => ctl.abort());
+  try {
+    const s = auth || S.session || {};   // un ticket en attente part avec les identifiants de celui qui l'a saisi
+    const r = await fetch(API_URL, {
+      method: 'POST', signal: ctl.signal, redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, id: s.id, pin: s.pin, nomInvite: s.nomInvite || '', ...rest })
+    });
+    return await r.json();
+  } finally { clearTimeout(tm); }
+}
+
+/* ---------- utilitaires ---------- */
+const num = v => { const n = parseFloat(String(v ?? '').replace(',', '.').replace(/[^\d.]/g, '')); return isFinite(n) ? n : null; };
+const fr = (n, d = 2) => n == null || n === '' ? '' : Number(n).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const uid = () => Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+const cb4 = x => { const m = String(x || '').replace(/\D/g, '').slice(-4); return m.length === 4 ? m : ''; };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const note = (el, type, html) => { $(el).innerHTML = html ? `<div class="note ${type}">${html}</div>` : ''; };
+function show(v){ ['vLogin','vHome','vForm','vDone'].forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0,0); }
+const vehOf = code => (S.session.vehicules || []).find(v => v.code === code) || {};
+
+// Réduit la photo (≈ 200–400 Ko) : envoi rapide même en 3G
+async function compress(file, max = 1600, q = 0.75) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', q);
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ---------- connexion ---------- */
+function applyLogin(r) {
+  Object.assign(S.session, { id: S.session.id === 'INVITE' ? 'INVITE' : r.id, nom: r.nom, admin: !!r.admin, guest: !!r.guest, vehicules: r.vehicules, cartes: r.cartes || [], tauxTVA: r.tauxTVA || 0.2 });
+  if (!S.session.vehicule || !vehOf(S.session.vehicule).code) S.session.vehicule = r.defaut || (r.vehicules[0] || {}).code;
+  LS.set('session', S.session);
+}
+let guestMode = false;
+$('bGuest').onclick = () => {
+  guestMode = !guestMode;
+  $('gStaff').classList.toggle('hidden', guestMode); $('gGuest').classList.toggle('hidden', !guestMode);
+  $('lPinLbl').textContent = guestMode ? 'Code invité' : 'Code PIN';
+  $('lPin').placeholder = guestMode ? 'code reçu' : '4 chiffres';
+  $('bGuest').textContent = guestMode ? 'Je suis salarié CC Express' : 'Remplaçant ? Connexion invité';
+  note('lMsg');
+};
+$('bLogin').onclick = async () => {
+  const id = guestMode ? 'INVITE' : $('lId').value.trim(), pin = $('lPin').value.trim();
+  const nomInvite = guestMode ? $('lNom').value.trim() : '';
+  if (guestMode && nomInvite.length < 3) return note('lMsg', 'err', 'Indiquez votre nom et prénom.');
+  if (!id || !pin) return note('lMsg', 'err', 'Remplissez les deux champs.');
+  $('bLogin').disabled = true; note('lMsg', 'ok', '<span class="spin"></span>Connexion…');
+  try {
+    S.session = { id, pin, nomInvite };
+    const r = await api('login', {}, 20000);
+    if (!r.ok) { S.session = null; return note('lMsg', 'err', esc(r.error || 'Erreur')); }
+    applyLogin(r); home();
+  } catch (e) {
+    S.session = null;
+    note('lMsg', 'err', 'Pas de réseau. La première connexion doit se faire avec du réseau.');
+  } finally { $('bLogin').disabled = false; }
+};
+$('bLogout').onclick = () => { LS.del('session'); S.session = null; $('lPin').value = ''; show('vLogin'); };
+
+/* ---------- accueil ---------- */
+function home() {
+  show('vHome');
+  const v = vehOf(S.session.vehicule);
+  $('hNom').textContent = 'Bonjour ' + S.session.nom;
+  $('hVeh').textContent = v.code ? `Véhicule ${v.code}${v.immat ? ' · ' + v.immat : ''}` : 'Aucun véhicule';
+  $('hListTitle').textContent = S.session.admin ? 'Tous les tickets (à compléter en premier)' : 'Mes derniers tickets';
+  refreshPending();
+  note('hNet', navigator.onLine ? '' : 'warn', navigator.onLine ? '' : 'Hors connexion : vos tickets seront envoyés automatiquement au retour du réseau.');
+  renderList();
+  if (navigator.onLine) {
+    api('login', {}, 15000).then(r => { if (r.ok) applyLogin(r); }).catch(() => {});
+    loadList();
+  }
+}
+async function loadList() {
+  try {
+    const r = await api('mine', {}, 15000);
+    if (r.ok) { S.tickets = r.tickets; LS.set('tickets', r.tickets); renderList(); }
+  } catch (e) {}
+}
+function renderList() {
+  const T = (S.tickets || []).slice().sort((a, b) => (/COMPL/.test(b.alerte) ? 1 : 0) - (/COMPL/.test(a.alerte) ? 1 : 0));
+  $('hList').innerHTML = T.length ? T.map((t, i) =>
+    `<li class="tap" data-i="${i}"><span>${esc(t.date)} · ${esc(t.vehicule)}${S.session.admin ? ' · ' + esc(t.nom) : ''}<br>
+       <span class="sub">${t.km ? fr(t.km, 0) + ' km' : 'km ?'} · CB ${esc(t.cb || '?')}</span>
+       ${t.alerte ? `<br><span class="tag">${esc(t.alerte)}</span>` : ''}</span>
+     <span style="text-align:right">${t.ttc ? fr(t.ttc) + ' €' : '—'}<br><span class="sub">${t.litres ? fr(t.litres) + ' L' : ''}</span>
+       <br><span class="retake">Reprendre la photo ›</span></span></li>`
+  ).join('') : '<li class="sub">Aucun ticket pour l\'instant</li>';
+  $('hList').querySelectorAll('li.tap').forEach(li => li.onclick = () => {
+    S.pendingEdit = T[+li.dataset.i]; $('fPhoto').click();
+  });
+}
+$('bChangeVeh').onclick = () => openForm(null, 'veh');
+
+/* ---------- photo → saisie ---------- */
+$('bCam').onclick = () => { S.pendingEdit = null; $('fPhoto').click(); };
+$('fPhoto').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) { S.pendingEdit = null; return; }
+  const data = await compress(f);
+  const edit = S.pendingEdit; S.pendingEdit = null;
+  openForm(data, edit ? 'retake' : 'new', edit);
+};
+
+function fillCb(selected) {
+  const list = (S.session.cartes || []).map(c => c.cb);
+  const extra = selected && !list.includes(selected) ? [selected] : [];
+  $('fCb').innerHTML = '<option value="">— choisir —</option>' +
+    list.concat(extra).map(cb => `<option value="${cb}">••••${cb}${extra.includes(cb) ? ' (inconnue)' : ''}</option>`).join('');
+  $('fCb').value = selected || '';
+}
+
+function openForm(photo, mode, edit) {
+  S.photo = photo; S.ocr = null; S.kmConfirmed = false; S.mode = mode; S.edit = edit || null;
+  show('vForm');
+  const isVeh = mode === 'veh', isRetake = mode === 'retake';
+  $('fTitle').textContent = isVeh ? 'Mon véhicule' : isRetake ? 'Reprise du ticket' : 'Vérifier le ticket';
+  $('fPrevCard').classList.toggle('hidden', !photo);
+  $('gTicket').classList.toggle('hidden', isVeh);
+  $('fImg').src = photo || '';
+  $('fBanner').innerHTML = isRetake
+    ? `<div class="banner">Nouvelle photo pour le ticket du <b>${esc(edit.date)}</b> (${esc(edit.vehicule)}${edit.nom ? ' · ' + esc(edit.nom) : ''}). Il sera mis à jour, pas dupliqué.</div>` : '';
+
+  $('fVeh').innerHTML = S.session.vehicules.map(v => `<option value="${esc(v.code)}">${esc(v.code)}${v.immat ? ' · ' + esc(v.immat) : ''}</option>`).join('');
+  $('fVeh').value = isRetake ? edit.vehicule : S.session.vehicule;
+  $('fVeh').disabled = isRetake;
+
+  // Valeurs de départ : celles du ticket existant (reprise) ou vides (nouveau)
+  $('fKm').value = isRetake && edit.km ? edit.km : '';
+  $('fKmNo').checked = false;
+  $('fLitres').value = isRetake && edit.litres ? fr(edit.litres) : '';
+  $('fTtc').value = isRetake && edit.ttc ? fr(edit.ttc) : '';
+  $('fDate').value = isRetake && edit.dateIso ? edit.dateIso : today();
+  $('fCarb').value = (isRetake && edit.carburant) || vehOf($('fVeh').value).carburant || 'Gazole';
+  fillCb(isRetake ? cb4(edit.cb) : (LS.get('lastCb') || ''));
+  kmUi(); kmHint(); htCalc(); note('fMsg');
+  $('bSend').textContent = isVeh ? 'Enregistrer' : isRetake ? 'Mettre à jour le ticket' : 'Envoyer';
+  if (photo) runOcr(photo);
+}
+
+async function runOcr(photo) {
+  if (!navigator.onLine) {
+    $('fOcr').innerHTML = 'Hors connexion.<br>Saisissez au moins le <b>kilométrage</b> : le reste sera lu automatiquement à l\'envoi.';
+    return;
+  }
+  $('fOcr').innerHTML = '<span class="spin"></span>Lecture du ticket…';
+  S.ocrCtl = new AbortController();
+  try {
+    const r = await api('ocr', { image: photo, signal: S.ocrCtl.signal }, 35000);
+    if (S.photo !== photo) return;
+    if (r.ok && r.data) {
+      const d = r.data; S.ocr = d;
+      if (d.litres) $('fLitres').value = fr(d.litres);
+      if (d.montant_ttc) $('fTtc').value = fr(d.montant_ttc);
+      if (d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) $('fDate').value = d.date;
+      if (d.carburant && [...$('fCarb').options].some(o => o.value === d.carburant)) $('fCarb').value = d.carburant;
+      const cb = cb4(d.cb_4);
+      if (cb) fillCb(cb);
+      const known = !cb || (S.session.cartes || []).some(c => c.cb === cb);
+      const miss = !d.litres || !d.montant_ttc;
+      $('fOcr').innerHTML = (miss ? 'Ticket lu en partie. <b>Complétez les cases vides.</b>'
+        : r.coherent === false ? 'Ticket lu. <b>Vérifiez litres et montant</b> (calcul incohérent).'
+        : 'Ticket lu. <b>Vérifiez</b> les valeurs.')
+        + (d.station ? `<br><span class="sub">${esc(d.station)}</span>` : '')
+        + (cb ? (known ? `<br><span class="sub">CB ••••${cb} lue sur le ticket</span>` : `<br><b style="color:var(--err)">CB ••••${cb} absente de la liste des cartes</b>`)
+              : '<br><span class="sub">CB non lue : <b>choisissez-la</b></span>');
+      htCalc();
+    } else {
+      $('fOcr').innerHTML = 'Lecture automatique indisponible.<br>Saisissez les valeurs du ticket.';
+    }
+  } catch (e) {
+    if (S.photo === photo) $('fOcr').innerHTML = 'Réseau trop lent pour lire le ticket.<br>Saisissez le <b>kilométrage</b> : le reste sera lu à l\'envoi.';
+  }
+}
+
+function kmUi() {
+  const no = $('fKmNo').checked;
+  $('fKm').disabled = no; if (no) $('fKm').value = '';
+  $('fKmHint').classList.toggle('hidden', no);
+}
+function kmHint() {
+  const v = vehOf($('fVeh').value);
+  $('fKmHint').textContent = v.dernierKm ? `Dernier relevé connu : ${v.dernierKm.toLocaleString('fr-FR')} km` : '';
+}
+function htCalc() {
+  const t = num($('fTtc').value), l = num($('fLitres').value);
+  if (!t) { $('fHt').textContent = ''; return; }
+  const ht = t / (1 + S.session.tauxTVA);
+  $('fHt').textContent = `HT ${fr(ht)} € · TVA ${fr(t - ht)} €` + (l ? ` · ${fr(t / l, 3)} €/L` : '');
+}
+$('fTtc').oninput = htCalc; $('fLitres').oninput = htCalc;
+$('fKmNo').onchange = () => { kmUi(); note('fMsg'); };
+$('fVeh').onchange = () => { kmHint(); S.kmConfirmed = false; };
+$('fKm').oninput = () => { S.kmConfirmed = false; note('fMsg'); };
+$('bCancel').onclick = () => { if (S.ocrCtl) S.ocrCtl.abort(); S.photo = null; home(); };
+
+/* ---------- envoi ---------- */
+$('bSend').onclick = async () => {
+  if (S.mode === 'veh') { S.session.vehicule = $('fVeh').value; LS.set('session', S.session); return home(); }
+
+  const km = num($('fKm').value), kmNo = $('fKmNo').checked;
+  const v = vehOf($('fVeh').value);
+  const cb = $('fCb').value;
+  if (S.mode === 'new' && !km && !kmNo) { note('fMsg', 'err', 'Le kilométrage est obligatoire (ou cochez « Je ne connais pas le km »).'); return $('fKm').focus(); }
+  if (!cb) { note('fMsg', 'err', 'Choisissez la CB utilisée.'); return $('fCb').focus(); }
+  if (S.mode === 'new' && km && !S.kmConfirmed && v.dernierKm) {
+    if (km <= v.dernierKm) { S.kmConfirmed = true; return note('fMsg', 'warn', `Kilométrage inférieur au dernier relevé (${v.dernierKm.toLocaleString('fr-FR')}). Normal si c'est un ticket ancien ; sinon corrigez. Appuyez à nouveau pour confirmer.`); }
+    if (km - v.dernierKm > 1500) { S.kmConfirmed = true; return note('fMsg', 'warn', `${(km - v.dernierKm).toLocaleString('fr-FR')} km depuis le dernier plein : vérifiez, ou appuyez à nouveau pour confirmer.`); }
+  }
+  const litres = num($('fLitres').value), ttc = num($('fTtc').value);
+  let lecture = 'Manuelle';
+  if (S.ocr) lecture = (S.ocr.litres === litres && S.ocr.montant_ttc === ttc) ? 'IA' : 'IA corrigée';
+
+  const payload = {
+    vehicule: $('fVeh').value, km: kmNo ? '' : km, kmInconnu: kmNo, litres, montant: ttc, date: $('fDate').value,
+    cb, carburant: $('fCarb').value, station: S.ocr && S.ocr.station || '', lecture, image: S.photo
+  };
+  const item = { clientId: uid(), createdAt: Date.now(), action: S.mode === 'retake' ? 'retake' : 'submit', payload,
+                 auth: { id: S.session.id, pin: S.session.pin, nomInvite: S.session.nomInvite || '' } };
+  if (item.action === 'retake') payload.ticketId = S.edit.id; else payload.clientId = item.clientId;
+
+  LS.set('lastCb', cb);
+  if (item.action === 'submit') {
+    S.session.vehicule = payload.vehicule;
+    if (km > (v.dernierKm || 0)) v.dernierKm = km;
+    LS.set('session', S.session);
+  }
+
+  $('bSend').disabled = true; $('bSend').innerHTML = '<span class="spin"></span>Envoi…';
+  await Q.add(item);                         // d'abord sur le téléphone : rien ne se perd
+  const res = await sendOne(item);
+  $('bSend').disabled = false;
+  S.photo = null;
+  done(res, item.action);
+};
+
+async function sendOne(item) {
+  if (!navigator.onLine) return { queued: true };
+  try {
+    const r = await api(item.action || 'submit', { ...item.payload, auth: item.auth }, 60000);
+    if (r.ok) { await Q.del(item.clientId); return r; }
+    if (r.auth === false) { if (S.session && S.session.guest) setTimeout(() => $('bLogout').onclick(), 4000); return { error: r.error }; }
+    if (/introuvable|pas le vôtre/.test(r.error || '')) { await Q.del(item.clientId); return { error: r.error }; }
+    return { error: r.error || 'Erreur serveur', queued: true };
+  } catch (e) { return { queued: true }; }
+}
+
+let flushing = false;
+async function flush() {
+  if (flushing || !navigator.onLine || !S.session) return;
+  flushing = true;
+  try {
+    const items = (await Q.all()).sort((a, b) => a.createdAt - b.createdAt);
+    for (const it of items) { const r = await sendOne(it); if (!r.ok && r.queued) break; }
+  } catch (e) {}
+  flushing = false;
+  refreshPending();
+  if (!$('vHome').classList.contains('hidden')) loadList();
+}
+async function refreshPending() {
+  let n = 0; try { n = (await Q.all()).length; } catch (e) {}
+  $('hPending').textContent = n + ' en attente d\'envoi';
+  $('hPending').classList.toggle('hidden', !n);
+}
+
+function done(r, action) {
+  show('vDone');
+  const ok = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.2 3L17 9"/></svg>';
+  const wait = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 2"/></svg>';
+  if (r.ok) {
+    $('dIcon').innerHTML = ok; $('dTitle').textContent = action === 'retake' ? 'Ticket mis à jour' : 'Ticket enregistré';
+    $('dText').innerHTML = r.alerte ? `<div class="note warn">Signalé : ${esc(r.alerte)}</div>` : 'Merci, vous pouvez jeter le ticket papier.';
+  } else if (r.error && !r.queued) {
+    $('dIcon').innerHTML = wait; $('dTitle').textContent = 'Envoi refusé';
+    $('dText').textContent = r.error;
+  } else {
+    $('dIcon').innerHTML = wait; $('dTitle').textContent = 'Enregistré sur le téléphone';
+    $('dText').textContent = 'Il sera envoyé automatiquement dès que le réseau revient. Gardez le ticket papier jusque-là.';
+  }
+}
+$('bAgain').onclick = () => home();
+
+/* ---------- démarrage ---------- */
+window.addEventListener('online', () => { flush(); if (!$('vHome').classList.contains('hidden')) home(); });
+window.addEventListener('offline', () => { if (!$('vHome').classList.contains('hidden')) home(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) flush(); });
+setInterval(flush, 60000);
+
+S.session = LS.get('session');
+S.tickets = LS.get('tickets') || [];
+if (S.session && S.session.vehicules) { home(); flush(); } else show('vLogin');
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
