@@ -436,10 +436,13 @@ async function runOcr(photo) {
     $('fOcr').innerHTML = 'Hors connexion.<br>Saisissez au moins le <b>kilométrage</b> : le reste sera lu automatiquement à l\'envoi.';
     return;
   }
-  $('fOcr').innerHTML = '<span class="spin"></span>Lecture du ticket…';
+  const t0 = Date.now();
+  const tick = () => { if (S.photo === photo && S.ocrBusy) $('fOcr').innerHTML = `<span class="spin"></span>Lecture du ticket… ${Math.round((Date.now() - t0) / 1000)} s<br><span class="sub">Vous pouvez saisir le km pendant ce temps.</span>`; };
+  S.ocrBusy = true; tick(); const iv = setInterval(tick, 1000);
   S.ocrCtl = new AbortController();
   try {
-    const r = await api('ocr', { image: photo, signal: S.ocrCtl.signal }, 35000);
+    const r = await api('ocr', { image: photo, signal: S.ocrCtl.signal }, 60000);
+    S.ocrBusy = false; clearInterval(iv);
     if (S.photo !== photo) return;
     if (r.ok && r.data) {
       const d = r.data; S.ocr = d;
@@ -459,10 +462,17 @@ async function runOcr(photo) {
               : '<br><span class="sub">CB non lue : <b>choisissez-la</b></span>');
       htCalc();
     } else {
-      $('fOcr').innerHTML = 'Lecture automatique indisponible.<br>Saisissez les valeurs du ticket.';
+      const why = r.reason === 'no_key' ? 'clé IA absente' : r.reason === 'api_error' ? 'erreur IA ' + esc(String(r.detail || '').slice(0, 3)) : r.reason === 'parse_error' ? 'ticket illisible' : esc(r.error || r.reason || '?');
+      $('fOcr').innerHTML = `Lecture automatique impossible (${why}).<br>Saisissez les valeurs du ticket.`;
     }
   } catch (e) {
-    if (S.photo === photo) $('fOcr').innerHTML = 'Réseau trop lent pour lire le ticket.<br>Saisissez le <b>kilométrage</b> : le reste sera lu à l\'envoi.';
+    S.ocrBusy = false; clearInterval(iv);
+    if (S.photo !== photo) return;
+    const sec = Math.round((Date.now() - t0) / 1000);
+    $('fOcr').innerHTML = (e && e.name === 'AbortError'
+      ? `Lecture trop longue (${sec} s).`
+      : `Lecture interrompue après ${sec} s (${esc(e && e.message || 'erreur')}).`)
+      + '<br>Saisissez le <b>kilométrage</b> : le reste sera lu à l\'envoi.';
   }
 }
 
