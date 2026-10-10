@@ -150,6 +150,8 @@
       </div>
       <div id="vMsg"></div>
       <button class="btn" id="bNext">Suivant : photographier le ticket</button>
+      <button class="btn ghost" id="bManual">Pas de ticket : saisie manuelle</button>
+      <div class="hint" id="hManual">Pompe en panne d'impression, ticket perdu… Les montants seront saisis à la main.</div>
     </div>
   </section>
 
@@ -376,7 +378,7 @@ function renderList() {
        <span class="sub">${t.km ? fr(t.km, 0) + ' km' : 'km ?'} · CB ${esc(t.cb || '?')}</span>
        ${t.alerte ? `<br><span class="tag">${esc(t.alerte)}</span>` : ''}</span>
      <span style="text-align:right">${t.ttc ? fr(t.ttc) + ' €' : '—'}<br><span class="sub">${t.litres ? fr(t.litres) + ' L' : ''}</span>
-       <br><span class="retake">Reprendre la photo ›</span></span></li>`
+       <br><span class="retake">${t.photo ? 'Reprendre la photo ›' : 'Ajouter la photo ›'}</span></span></li>`
   ).join('') : '<li class="sub">Aucun ticket pour l\'instant</li>';
   $('hList').querySelectorAll('li.tap').forEach(li => li.onclick = () => {
     S.pendingEdit = T[+li.dataset.i]; $('fPhoto').click();
@@ -384,7 +386,7 @@ function renderList() {
 }
 
 /* ---------- photo → saisie ---------- */
-$('bCam').onclick = () => { S.pendingEdit = null; S.photo = null; openVeh(); };
+$('bCam').onclick = () => { S.pendingEdit = null; S.photo = null; S.manual = false; openVeh(); };
 
 /* ---------- étape 1 : véhicule ---------- */
 function openVeh() {
@@ -394,26 +396,34 @@ function openVeh() {
     parc.map(v => `<option value="${esc(v.code)}">${esc(v.code)}${v.immat ? ' · ' + esc(v.immat) : ''}</option>`).join('') +
     '<option value="__AUTRE__">Autre véhicule (location, prêt…)</option>';
   // Nouveau ticket : rien de présélectionné. Retour depuis l'étape 3 ("Modifier") : on garde le choix en cours.
-  if (S.photo && cur) {
+  const back = (S.photo || S.manual) && cur;   // retour depuis l'écran « Compléter »
+  if (back) {
     const inParc = parc.some(v => v.code === cur.vehicule);
     $('fVeh').value = inParc ? cur.vehicule : '__AUTRE__';
     $('fVehAutre').value = inParc ? '' : cur.vehicule; $('fVehType').value = cur.horsParc || 'Location';
   } else {
     S.veh = null; $('fVeh').value = ''; $('fVehAutre').value = ''; $('fVehType').value = 'Location';
   }
-  $('bNext').textContent = S.photo ? 'Valider le véhicule' : 'Suivant : photographier le ticket';
+  $('bNext').textContent = back ? 'Valider le véhicule' : 'Suivant : photographier le ticket';
+  $('bManual').classList.toggle('hidden', !!back); $('hManual').classList.toggle('hidden', !!back);
   note('vMsg'); vehUi(); show('vVeh');
 }
-$('bNext').onclick = () => {
+function checkVeh() {
   const autre = $('fVeh').value === '__AUTRE__';
   const vehicule = autre ? immat($('fVehAutre').value) : $('fVeh').value;
-  if (!$('fVeh').value) return note('vMsg', 'err', 'Choisissez le véhicule utilisé.');
-  if (autre && vehicule.length < 5) { note('vMsg', 'err', 'Saisissez l\'immatriculation du véhicule de location / prêt.'); return $('fVehAutre').focus(); }
+  if (!$('fVeh').value) { note('vMsg', 'err', 'Choisissez le véhicule utilisé.'); return false; }
+  if (autre && vehicule.length < 5) { note('vMsg', 'err', 'Saisissez l\'immatriculation du véhicule de location / prêt.'); $('fVehAutre').focus(); return false; }
   S.veh = { vehicule, horsParc: autre ? $('fVehType').value : '' };
-  if (S.photo) { show('vForm'); vehSum(); kmHint(); S.kmConfirmed = false; return; }
+  return true;
+}
+$('bNext').onclick = () => {
+  if (!checkVeh()) return;
+  if (S.photo || S.manual) { show('vForm'); vehSum(); kmHint(); S.kmConfirmed = false; return; }
   $('fPhoto').click();   // étape 2 : l'appareil photo s'ouvre
 };
-$('bVehCancel').onclick = () => { if (S.photo && S.veh) show('vForm'); else { S.photo = null; home(); } };
+// Sans ticket : on passe directement à la saisie
+$('bManual').onclick = () => { if (!checkVeh()) return; S.manual = true; openForm(null, 'new'); };
+$('bVehCancel').onclick = () => { if ((S.photo || S.manual) && S.veh) show('vForm'); else { S.photo = null; S.manual = false; home(); } };
 function vehSum() {
   const v = S.veh || {}, p = vehOf(v.vehicule);
   $('fChauf').textContent = (S.mode === 'retake' && S.edit && S.edit.nom) ? S.edit.nom : S.session.nom;
@@ -426,7 +436,7 @@ $('fPhoto').onchange = async e => {
   if (!f) { S.pendingEdit = null; return; }
   const data = await compress(f);
   const edit = S.pendingEdit; S.pendingEdit = null;
-  if (edit) S.veh = { vehicule: edit.vehicule, horsParc: '' };
+  if (edit) { S.veh = { vehicule: edit.vehicule, horsParc: '' }; S.manual = false; }
   if (!S.veh) return home();
   openForm(data, edit ? 'retake' : 'new', edit);
 };
@@ -446,8 +456,10 @@ function openForm(photo, mode, edit) {
   $('fTitle').textContent = isRetake ? 'Reprise du ticket' : 'Compléter le ticket';
   $('fSteps').classList.toggle('hidden', isRetake);
   vehSum();
-  $('fPrevCard').classList.toggle('hidden', !photo);
-  $('fImg').src = photo || '';
+  $('fPrevCard').classList.toggle('hidden', !photo && !S.manual);
+  $('fImg').src = photo || ''; $('fImg').classList.toggle('hidden', !photo);
+  if (!photo && S.manual) $('fOcr').innerHTML = '<b>Sans ticket : saisie manuelle.</b><br>Litres, montant TTC et date sont obligatoires.' +
+    '<br><span class="sub">Si vous obtenez une facture plus tard, touchez ce ticket dans « Mes derniers tickets » pour ajouter sa photo.</span>';
   $('fBanner').innerHTML = isRetake
     ? `<div class="banner">Nouvelle photo pour le ticket du <b>${esc(edit.date)}</b> (${esc(edit.vehicule)}${edit.nom ? ' · ' + esc(edit.nom) : ''}). Il sera mis à jour, pas dupliqué.</div>` : '';
 
@@ -542,7 +554,7 @@ $('fVeh').onchange = () => {
   if ($('fVeh').value === '__AUTRE__') $('fVehAutre').focus();
 };
 $('fKm').oninput = () => { S.kmConfirmed = false; note('fMsg'); };
-$('bCancel').onclick = () => { if (S.ocrCtl) S.ocrCtl.abort(); S.photo = null; home(); };
+$('bCancel').onclick = () => { if (S.ocrCtl) S.ocrCtl.abort(); S.photo = null; S.manual = false; home(); };
 
 /* ---------- envoi ---------- */
 $('bSend').onclick = async () => {
@@ -553,6 +565,10 @@ $('bSend').onclick = async () => {
   const cb = $('fCb').value;
   if (S.mode === 'new' && !km && !kmNo) { note('fMsg', 'err', 'Le kilométrage est obligatoire (ou cochez « Je ne connais pas le km »).'); return $('fKm').focus(); }
   if (!cb) { note('fMsg', 'err', 'Choisissez la CB utilisée.'); return $('fCb').focus(); }
+  if (S.mode === 'new' && !S.photo && (!num($('fLitres').value) || !num($('fTtc').value) || !$('fDate').value)) {
+    note('fMsg', 'err', 'Sans ticket, les litres, le montant TTC et la date sont obligatoires (lus sur l\'écran de la pompe ou le relevé CB).');
+    return $(!num($('fLitres').value) ? 'fLitres' : !num($('fTtc').value) ? 'fTtc' : 'fDate').focus();
+  }
   if (S.mode === 'new' && km && !S.kmConfirmed && v.dernierKm) {
     if (km <= v.dernierKm) { S.kmConfirmed = true; return note('fMsg', 'warn', `Kilométrage inférieur au dernier relevé (${v.dernierKm.toLocaleString('fr-FR')}). Normal si c'est un ticket ancien ; sinon corrigez. Appuyez à nouveau pour confirmer.`); }
     if (km - v.dernierKm > 1500) { S.kmConfirmed = true; return note('fMsg', 'warn', `${(km - v.dernierKm).toLocaleString('fr-FR')} km depuis le dernier plein : vérifiez, ou appuyez à nouveau pour confirmer.`); }
@@ -563,7 +579,8 @@ $('bSend').onclick = async () => {
 
   const payload = {
     vehicule, horsParc: S.veh.horsParc || '', km: kmNo ? '' : km, kmInconnu: kmNo, litres, montant: ttc, date: $('fDate').value,
-    cb, carburant: $('fCarb').value, station: S.ocr && S.ocr.station || '', lecture, image: S.photo
+    cb, carburant: $('fCarb').value, station: S.ocr && S.ocr.station || '', lecture: S.photo ? lecture : 'Sans ticket (saisie manuelle)',
+    sansTicket: !S.photo, image: S.photo
   };
   const item = { clientId: uid(), createdAt: Date.now(), action: S.mode === 'retake' ? 'retake' : 'submit', payload,
                  auth: { id: S.session.id, pin: S.session.pin, nomInvite: S.session.nomInvite || '' } };
@@ -579,7 +596,7 @@ $('bSend').onclick = async () => {
   await Q.add(item);                         // d'abord sur le téléphone : rien ne se perd
   const res = await sendOne(item);
   $('bSend').disabled = false;
-  S.photo = null;
+  S.photo = null; S.manual = false;
   done(res, item.action);
 };
 
@@ -619,6 +636,7 @@ function done(r, action) {
   if (r.ok) {
     $('dIcon').innerHTML = ok; $('dTitle').textContent = action === 'retake' ? 'Ticket mis à jour' : 'Ticket enregistré';
     $('dText').innerHTML = r.alerte ? `<div class="note warn">Signalé : ${esc(r.alerte)}</div>` : 'Merci, vous pouvez jeter le ticket papier.';
+    if (r.alerte && /SANS TICKET/.test(r.alerte)) $('dText').innerHTML += '<div class="hint">Si vous obtenez une facture, ajoutez sa photo depuis « Mes derniers tickets ».</div>';
   } else if (r.error && !r.queued) {
     $('dIcon').innerHTML = wait; $('dTitle').textContent = 'Envoi refusé';
     $('dText').textContent = r.error;
