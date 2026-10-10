@@ -1,6 +1,6 @@
 // Service worker : l'application s'ouvre même sans réseau.
 // Changez VERSION à chaque mise à jour de index.html pour forcer le rafraîchissement.
-const VERSION = 'cc-carburant-v13';
+const VERSION = 'cc-carburant-v14';
 const SHELL = ['./', 'index.html', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
