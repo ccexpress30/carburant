@@ -128,8 +128,8 @@
       <div class="hint" style="margin:0 0 8px">Ticket mal photographié ? Touchez-le pour reprendre la photo.</div>
       <ul class="list" id="hList"><li class="sub">—</li></ul>
     </div>
-    <button class="link" id="bLogout">Se déconnecter</button> ·
-    <button class="link" id="bReset">Réinitialiser l'appli</button>
+    <button class="link" id="bLogout">Se déconnecter</button><span id="gReset"> ·
+    <button class="link" id="bReset">Réinitialiser l'appli</button></span>
     <div id="hReset"></div>
   </section>
 
@@ -356,6 +356,7 @@ $('bLogout').onclick = () => { LS.del('session'); S.session = null; showLogin();
 function home() {
   show('vHome');
   $('hNom').textContent = 'Bonjour ' + S.session.nom;
+  $('gReset').classList.toggle('hidden', !S.session.admin);   // réservé aux comptes Admin
   $('hListTitle').textContent = S.session.admin ? 'Tous les tickets (à compléter en premier)' : 'Mes derniers tickets';
   refreshPending();
   note('hNet', navigator.onLine ? '' : 'warn', navigator.onLine ? '' : 'Hors connexion : vos tickets seront envoyés automatiquement au retour du réseau.');
