@@ -4,18 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>CC Carburant</title>
-<meta name="theme-color" content="#1f3a5f">
+<meta name="theme-color" content="#174e7f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Carburant">
+<meta name="apple-mobile-web-app-title" content="CCE Carbu">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <style>
   :root{
     --bg:#f3f5f8; --card:#fff; --ink:#14202e; --mute:#5b6b7d; --line:#d9e0e8;
-    --brand:#1f3a5f; --brand-ink:#fff; --ok:#1e7a46; --ok-bg:#e3f4ea;
+    --brand:#174e7f; --brand-ink:#fff; --ok:#1e7a46; --ok-bg:#e3f4ea;
     --warn:#8a5a00; --warn-bg:#fff4d6; --err:#a32020; --err-bg:#fde6e6;
     --radius:14px;
   }
@@ -94,12 +94,10 @@
 
   <!-- CONNEXION -->
   <section id="vLogin" class="hidden">
-    <header><h1>Tickets carburant</h1></header>
+    <header style="justify-content:flex-start"><img src="icon-192.png" alt="" style="width:56px;height:56px;border-radius:13px;flex:none"><h1>Tickets carburant</h1></header>
     <div class="card">
-      <div id="gStaff">
-        <label for="lId">Votre identifiant</label>
-        <input id="lId" inputmode="numeric" autocomplete="username" placeholder="ex. 2">
-      </div>
+      <label for="lChauf">Chauffeur</label>
+      <select id="lChauf"><option value="">Chargement…</option></select>
       <div id="gGuest" class="hidden">
         <div class="banner">Accès remplaçant : utilisez le code que vous a donné CC Express.</div>
         <label for="lNom">Votre nom et prénom</label>
@@ -109,7 +107,6 @@
       <input id="lPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="4 chiffres">
       <button class="btn" id="bLogin">Se connecter</button>
       <div id="lMsg"></div>
-      <button class="link" id="bGuest" style="margin-top:10px">Remplaçant ? Connexion invité</button>
     </div>
   </section>
 
@@ -131,7 +128,9 @@
       <div class="hint" style="margin:0 0 8px">Ticket mal photographié ? Touchez-le pour reprendre la photo.</div>
       <ul class="list" id="hList"><li class="sub">—</li></ul>
     </div>
-    <button class="link" id="bLogout">Se déconnecter</button>
+    <button class="link" id="bLogout">Se déconnecter</button> ·
+    <button class="link" id="bReset">Réinitialiser l'appli</button>
+    <div id="hReset"></div>
   </section>
 
   <!-- ÉTAPE 1 : VÉHICULE -->
@@ -290,20 +289,38 @@ function applyLogin(r) {
   Object.assign(S.session, { id: S.session.id === 'INVITE' ? 'INVITE' : r.id, nom: r.nom, admin: !!r.admin, guest: !!r.guest, vehicules: r.vehicules, cartes: r.cartes || [], tauxTVA: r.tauxTVA || 0.2 });
   LS.set('session', S.session);
 }
+/* Liste déroulante des chauffeurs (ordre alphabétique) + INVITÉ en fin de liste */
 let guestMode = false;
-$('bGuest').onclick = () => {
-  guestMode = !guestMode;
-  $('gStaff').classList.toggle('hidden', guestMode); $('gGuest').classList.toggle('hidden', !guestMode);
+function fillChauffeurs(list) {
+  const cur = $('lChauf').value;
+  $('lChauf').innerHTML = '<option value="">— Choisir votre nom —</option>' +
+    (list || []).map(c => `<option value="${esc(c.id)}">${esc(c.nom)}</option>`).join('') +
+    '<option disabled>──────────</option><option value="INVITE">INVITÉ (remplaçant)</option>';
+  if (cur) $('lChauf').value = cur;
+}
+async function loadChauffeurs() {
+  fillChauffeurs(LS.get('chauffeurs'));            // liste connue : affichage immédiat, même hors réseau
+  try {
+    const r = await api('chauffeurs', {}, 15000);
+    if (r.ok) { LS.set('chauffeurs', r.chauffeurs); fillChauffeurs(r.chauffeurs); }
+  } catch (e) {
+    if (!LS.get('chauffeurs')) note('lMsg', 'err', 'Pas de réseau : la liste des chauffeurs ne peut pas être chargée.');
+  }
+}
+$('lChauf').onchange = () => {
+  guestMode = $('lChauf').value === 'INVITE';
+  $('gGuest').classList.toggle('hidden', !guestMode);
   $('lPinLbl').textContent = guestMode ? 'Code invité' : 'Code PIN';
   $('lPin').placeholder = guestMode ? 'code reçu' : '4 chiffres';
-  $('bGuest').textContent = guestMode ? 'Je suis salarié CC Express' : 'Remplaçant ? Connexion invité';
   note('lMsg');
+  if (guestMode) $('lNom').focus(); else $('lPin').focus();
 };
 $('bLogin').onclick = async () => {
-  const id = guestMode ? 'INVITE' : $('lId').value.trim(), pin = $('lPin').value.trim();
+  const id = $('lChauf').value, pin = $('lPin').value.trim();
+  if (!id) return note('lMsg', 'err', 'Choisissez votre nom dans la liste.');
   const nomInvite = guestMode ? $('lNom').value.trim() : '';
   if (guestMode && nomInvite.length < 3) return note('lMsg', 'err', 'Indiquez votre nom et prénom.');
-  if (!id || !pin) return note('lMsg', 'err', 'Remplissez les deux champs.');
+  if (!pin) return note('lMsg', 'err', guestMode ? 'Saisissez le code invité.' : 'Saisissez votre code PIN.');
   $('bLogin').disabled = true; note('lMsg', 'ok', '<span class="spin"></span>Connexion…');
   try {
     S.session = { id, pin, nomInvite };
@@ -315,7 +332,23 @@ $('bLogin').onclick = async () => {
     note('lMsg', 'err', 'Pas de réseau. La première connexion doit se faire avec du réseau.');
   } finally { $('bLogin').disabled = false; }
 };
-$('bLogout').onclick = () => { LS.del('session'); S.session = null; $('lPin').value = ''; show('vLogin'); };
+// Réinitialisation complète du téléphone : connexion, tickets en attente, cache. Deux appuis pour confirmer.
+let resetArmed = false;
+$('bReset').onclick = async () => {
+  let n = 0; try { n = (await Q.all()).length; } catch (e) {}
+  if (!resetArmed) {
+    resetArmed = true; setTimeout(() => { resetArmed = false; note('hReset'); }, 8000);
+    return note('hReset', n ? 'err' : 'warn', (n ? `<b>${n} ticket(s) pas encore envoyé(s) seront perdus.</b><br>` : '') +
+      'Tout ce que l\'appli a gardé sur ce téléphone sera effacé (les tickets déjà envoyés restent dans le Sheet). Touchez à nouveau « Réinitialiser l\'appli » pour confirmer.');
+  }
+  try { localStorage.clear(); } catch (e) {}
+  try { indexedDB.deleteDatabase('cc-carburant'); } catch (e) {}
+  try { (await caches.keys()).forEach(k => caches.delete(k)); } catch (e) {}
+  try { (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister()); } catch (e) {}
+  location.reload();
+};
+function showLogin() { $('lPin').value = ''; show('vLogin'); loadChauffeurs(); }
+$('bLogout').onclick = () => { LS.del('session'); S.session = null; showLogin(); };
 
 /* ---------- accueil ---------- */
 function home() {
@@ -604,7 +637,7 @@ setInterval(flush, 60000);
 
 S.session = LS.get('session');
 S.tickets = LS.get('tickets') || [];
-if (S.session && S.session.vehicules) { home(); flush(); } else show('vLogin');
+if (S.session && S.session.vehicules) { home(); flush(); } else showLogin();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
