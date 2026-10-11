@@ -183,17 +183,18 @@
         <input id="fKm" inputmode="numeric" placeholder="ex. 124530">
         <div class="hint" id="fKmHint"></div>
         <label class="check"><input type="checkbox" id="fKmNo"> Je ne connais pas le km (ticket ancien)</label>
+        <label for="fCb">CB utilisée</label><select id="fCb"></select>
+        <button class="link" id="bMontants" type="button">Saisir les montants moi-même ›</button>
+        <div id="gMontants">
         <div class="row">
           <div><label for="fLitres">Litres</label><input id="fLitres" inputmode="decimal" placeholder="0,00"></div>
           <div><label for="fTtc">Montant TTC €</label><input id="fTtc" inputmode="decimal" placeholder="0,00"></div>
         </div>
         <div class="ht" id="fHt"></div>
-        <div class="row">
-          <div><label for="fDate">Date du ticket</label><input id="fDate" type="date"></div>
-          <div><label for="fCb">CB utilisée *</label><select id="fCb"></select></div>
-        </div>
+        <label for="fDate">Date du ticket</label><input id="fDate" type="date">
         <label for="fCarb">Carburant</label>
         <select id="fCarb"><option>Gazole</option><option>SP95-E10</option><option>SP95</option><option>SP98</option><option>E85</option><option>GPL</option><option>AdBlue</option><option>Autre</option></select>
+        </div>
       </div>
       <div id="fMsg"></div>
       <button class="btn" id="bSend">Envoyer</button>
@@ -499,7 +500,11 @@ function openForm(photo, mode, edit) {
   if (S.veh && S.veh.vehicule === 'INCONNU') $('fKmNo').checked = true;
   kmUi(); kmHint(); htCalc(); note('fMsg');
   $('bSend').textContent = isRetake ? 'Mettre à jour le ticket' : 'Envoyer';
-  if (photo) runOcr(photo);
+  // Avec photo : montants repliés (l'IA les lit en arrière-plan après l'envoi). Sans photo : saisie obligatoire.
+  S.montants = !photo;
+  montantsUi();
+  if (photo) $('fOcr').innerHTML = '<b>✓ Photo prête.</b><br>Saisissez le kilométrage et envoyez : le ticket sera lu automatiquement ' +
+    '(montants, date, CB), sans attendre.';
 }
 
 async function runOcr(photo) {
@@ -548,6 +553,11 @@ async function runOcr(photo) {
   }
 }
 
+function montantsUi() {
+  $('gMontants').classList.toggle('hidden', !S.montants);
+  $('bMontants').classList.toggle('hidden', S.montants);
+}
+$('bMontants').onclick = () => { S.montants = true; montantsUi(); $('fLitres').focus(); };
 function kmUi() {
   const no = $('fKmNo').checked;
   $('fKm').disabled = no; if (no) $('fKm').value = '';
@@ -585,14 +595,13 @@ $('bCancel').onclick = () => { if (S.ocrCtl) S.ocrCtl.abort(); S.photo = null; S
 
 /* ---------- envoi ---------- */
 $('bSend').onclick = async () => {
-  if (S.ocrBusy && S.ocrCtl) { S.ocrCtl.abort(); S.ocrBusy = false; }
   const km = num($('fKm').value), kmNo = $('fKmNo').checked;
   if (!S.veh || !S.veh.vehicule) return openVeh();
   const vehicule = S.veh.vehicule;
   const v = vehOf(vehicule);
   const cb = $('fCb').value;
   if (S.mode === 'new' && !km && !kmNo) { note('fMsg', 'err', 'Le kilométrage est obligatoire (ou cochez « Je ne connais pas le km »).'); return $('fKm').focus(); }
-  if (!cb) { note('fMsg', 'err', 'Choisissez la CB utilisée.'); return $('fCb').focus(); }
+  if (!cb && !S.photo) { note('fMsg', 'err', 'Choisissez la CB utilisée.'); return $('fCb').focus(); }
   if (S.mode === 'new' && !S.photo && (!num($('fLitres').value) || !num($('fTtc').value) || !$('fDate').value)) {
     note('fMsg', 'err', 'Sans ticket, les litres, le montant TTC et la date sont obligatoires (lus sur l\'écran de la pompe ou le relevé CB).');
     return $(!num($('fLitres').value) ? 'fLitres' : !num($('fTtc').value) ? 'fTtc' : 'fDate').focus();
@@ -601,13 +610,12 @@ $('bSend').onclick = async () => {
     if (km <= v.dernierKm) { S.kmConfirmed = true; return note('fMsg', 'warn', `Kilométrage inférieur au dernier relevé (${v.dernierKm.toLocaleString('fr-FR')}). Normal si c'est un ticket ancien ; sinon corrigez. Appuyez à nouveau pour confirmer.`); }
     if (km - v.dernierKm > 1500) { S.kmConfirmed = true; return note('fMsg', 'warn', `${(km - v.dernierKm).toLocaleString('fr-FR')} km depuis le dernier plein : vérifiez, ou appuyez à nouveau pour confirmer.`); }
   }
-  const litres = num($('fLitres').value), ttc = num($('fTtc').value);
-  let lecture = 'Manuelle';
-  if (S.ocr) lecture = (S.ocr.litres === litres && S.ocr.montant_ttc === ttc) ? 'IA' : 'IA corrigée';
+  // Montants et date envoyés seulement s'ils ont été saisis à la main ; sinon l'IA les lira au serveur
+  const litres = S.montants ? num($('fLitres').value) : null, ttc = S.montants ? num($('fTtc').value) : null;
 
   const payload = {
-    vehicule, horsParc: S.veh.horsParc || '', pourChauffeur: S.pour ? S.pour.id : '', km: kmNo ? '' : km, kmInconnu: kmNo, litres, montant: ttc, date: $('fDate').value,
-    cb, carburant: $('fCarb').value, station: S.ocr && S.ocr.station || '', lecture: S.photo ? lecture : 'Sans ticket (saisie manuelle)',
+    vehicule, horsParc: S.veh.horsParc || '', pourChauffeur: S.pour ? S.pour.id : '', km: kmNo ? '' : km, kmInconnu: kmNo, litres, montant: ttc, date: S.montants ? $('fDate').value : '',
+    cb, carburant: S.montants ? $('fCarb').value : '', station: '', lecture: S.photo ? '' : 'Sans ticket (saisie manuelle)',
     sansTicket: !S.photo, image: S.photo
   };
   const item = { clientId: uid(), createdAt: Date.now(), action: S.mode === 'retake' ? 'retake' : 'submit', payload,
