@@ -138,6 +138,11 @@
     <header><h1>Nouveau ticket</h1><button class="link" id="bVehCancel">Annuler</button></header>
     <div class="steps"><b>Véhicule</b> › Photo › Compléter</div>
     <div class="card">
+      <div id="gPour" class="hidden">
+        <label for="fPour">Chauffeur concerné (saisie admin)</label>
+        <select id="fPour"></select>
+        <div class="hint">Pour saisir après coup les tickets d'un autre chauffeur, ou d'un chauffeur inconnu.</div>
+      </div>
       <div id="gVeh">
         <label for="fVeh">Véhicule utilisé *</label>
         <select id="fVeh"></select>
@@ -363,6 +368,7 @@ function home() {
   renderList();
   if (navigator.onLine) {
     api('login', {}, 15000).then(r => { if (r.ok) applyLogin(r); }).catch(() => {});
+    if (S.session.admin) api('chauffeurs', {}, 15000).then(r => { if (r.ok) LS.set('chauffeurs', r.chauffeurs); }).catch(() => {});
     loadList();
   }
 }
@@ -387,7 +393,7 @@ function renderList() {
 }
 
 /* ---------- photo → saisie ---------- */
-$('bCam').onclick = () => { S.pendingEdit = null; S.photo = null; S.manual = false; openVeh(); };
+$('bCam').onclick = () => { S.pendingEdit = null; S.photo = null; S.manual = false; S.pour = null; openVeh(); };
 
 /* ---------- étape 1 : véhicule ---------- */
 function openVeh() {
@@ -395,7 +401,18 @@ function openVeh() {
   const cur = S.veh;
   $('fVeh').innerHTML = '<option value="">— Choisir le véhicule —</option>' +
     parc.map(v => `<option value="${esc(v.code)}">${esc(v.code)}${v.immat ? ' · ' + esc(v.immat) : ''}</option>`).join('') +
-    '<option value="__AUTRE__">Autre véhicule (location, prêt…)</option>';
+    '<option value="__AUTRE__">Autre véhicule (location, prêt…)</option>' +
+    (S.session.admin ? '<option value="INCONNU">Véhicule inconnu (saisie après coup)</option>' : '');
+  // Admin : choix du chauffeur pour qui on saisit
+  $('gPour').classList.toggle('hidden', !S.session.admin);
+  if (S.session.admin) {
+    const liste = (LS.get('chauffeurs') || []).filter(c => norm(c.id) !== norm(S.session.id));
+    const curPour = S.pour ? S.pour.id : '';
+    $('fPour').innerHTML = `<option value="">Moi (${esc(S.session.nom)})</option>` +
+      liste.map(c => `<option value="${esc(c.id)}">${esc(c.nom)}</option>`).join('') +
+      '<option value="INCONNU">Chauffeur inconnu</option>';
+    $('fPour').value = (S.photo || S.manual) && cur ? curPour : '';
+  }
   // Nouveau ticket : rien de présélectionné. Retour depuis l'étape 3 ("Modifier") : on garde le choix en cours.
   const back = (S.photo || S.manual) && cur;   // retour depuis l'écran « Compléter »
   if (back) {
@@ -415,8 +432,14 @@ function checkVeh() {
   if (!$('fVeh').value) { note('vMsg', 'err', 'Choisissez le véhicule utilisé.'); return false; }
   if (autre && vehicule.length < 5) { note('vMsg', 'err', 'Saisissez l\'immatriculation du véhicule de location / prêt.'); $('fVehAutre').focus(); return false; }
   S.veh = { vehicule, horsParc: autre ? $('fVehType').value : '' };
+  S.pour = null;
+  if (S.session.admin && $('fPour').value) {
+    const id = $('fPour').value, opt = $('fPour').selectedOptions[0];
+    S.pour = { id, nom: id === 'INCONNU' ? 'INCONNU' : opt.textContent };
+  }
   return true;
 }
+const norm = x => String(x || '').trim().replace(/^0+(?=\d)/, '');
 $('bNext').onclick = () => {
   if (!checkVeh()) return;
   if (S.photo || S.manual) { show('vForm'); vehSum(); kmHint(); S.kmConfirmed = false; return; }
@@ -427,7 +450,8 @@ $('bManual').onclick = () => { if (!checkVeh()) return; S.manual = true; openFor
 $('bVehCancel').onclick = () => { if ((S.photo || S.manual) && S.veh) show('vForm'); else { S.photo = null; S.manual = false; home(); } };
 function vehSum() {
   const v = S.veh || {}, p = vehOf(v.vehicule);
-  $('fChauf').textContent = (S.mode === 'retake' && S.edit && S.edit.nom) ? S.edit.nom : S.session.nom;
+  $('fChauf').textContent = (S.mode === 'retake' && S.edit && S.edit.nom) ? S.edit.nom
+    : S.pour ? S.pour.nom + ' (saisi par ' + S.session.nom + ')' : S.session.nom;
   $('fVehSum').innerHTML = `<span class="idlbl">2 · Véhicule</span><span style="flex:1;text-align:right">${esc(v.vehicule || '?')}${p.immat ? ' · ' + esc(p.immat) : ''}${v.horsParc ? ' <span class="sub">(' + esc(v.horsParc) + ')</span>' : ''}</span>` +
     (S.mode === 'new' ? '<button class="link" id="bVehEdit">Modifier</button>' : '');
   const b = $('bVehEdit'); if (b) b.onclick = openVeh;
@@ -472,6 +496,7 @@ function openForm(photo, mode, edit) {
   $('fDate').value = isRetake && edit.dateIso ? edit.dateIso : today();
   $('fCarb').value = (isRetake && edit.carburant) || vehOf(S.veh.vehicule).carburant || 'Gazole';
   fillCb(isRetake ? cb4(edit.cb) : (LS.get('lastCb') || ''));
+  if (S.veh && S.veh.vehicule === 'INCONNU') $('fKmNo').checked = true;
   kmUi(); kmHint(); htCalc(); note('fMsg');
   $('bSend').textContent = isRetake ? 'Mettre à jour le ticket' : 'Envoyer';
   if (photo) runOcr(photo);
@@ -581,7 +606,7 @@ $('bSend').onclick = async () => {
   if (S.ocr) lecture = (S.ocr.litres === litres && S.ocr.montant_ttc === ttc) ? 'IA' : 'IA corrigée';
 
   const payload = {
-    vehicule, horsParc: S.veh.horsParc || '', km: kmNo ? '' : km, kmInconnu: kmNo, litres, montant: ttc, date: $('fDate').value,
+    vehicule, horsParc: S.veh.horsParc || '', pourChauffeur: S.pour ? S.pour.id : '', km: kmNo ? '' : km, kmInconnu: kmNo, litres, montant: ttc, date: $('fDate').value,
     cb, carburant: $('fCarb').value, station: S.ocr && S.ocr.station || '', lecture: S.photo ? lecture : 'Sans ticket (saisie manuelle)',
     sansTicket: !S.photo, image: S.photo
   };
