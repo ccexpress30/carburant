@@ -504,6 +504,7 @@ async function runOcr(photo) {
         : r.coherent === false ? 'Ticket lu. <b>Vérifiez litres et montant</b> (calcul incohérent).'
         : 'Ticket lu. <b>Vérifiez</b> les valeurs.')
         + (d.station ? `<br><span class="sub">${esc(d.station)}</span>` : '')
+        + `<br><span class="sub" style="font-size:12px">Lu en ${Math.round((Date.now() - t0) / 1000)} s${r.duree ? ' (IA ' + String(r.duree).replace('.', ',') + ' s' + (r.modele ? ' · ' + esc(r.modele.replace('gemini-', '')) : '') + ')' : ''}</span>`
         + (cb ? (known ? `<br><span class="sub">CB ••••${cb} lue sur le ticket</span>` : `<br><b style="color:var(--err)">CB ••••${cb} absente de la liste des cartes</b>`)
               : '<br><span class="sub">CB non lue : <b>choisissez-la</b></span>');
       htCalc();
