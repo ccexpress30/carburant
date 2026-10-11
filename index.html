@@ -356,7 +356,7 @@ $('bReset').onclick = async () => {
   location.reload();
 };
 function showLogin() { $('lPin').value = ''; show('vLogin'); loadChauffeurs(); }
-$('bLogout').onclick = () => { LS.del('session'); S.session = null; showLogin(); };
+$('bLogout').onclick = () => { LS.del('session'); LS.del('tickets'); S.tickets = []; S.session = null; showLogin(); };
 
 /* ---------- accueil ---------- */
 function home() {
